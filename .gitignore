@@ -1,0 +1,21 @@
+# Dipendenze
+node_modules/
+
+# Variabili d'ambiente
+.env
+
+# Upload utenti
+uploads/*
+!uploads/.gitkeep
+
+# Log
+logs/
+*.log
+
+# Sistema
+.DS_Store
+Thumbs.db
+
+# Editor
+.vscode/
+.idea/
