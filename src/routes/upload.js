@@ -5,7 +5,7 @@
  */
 'use strict';
 
-const { Router }    = require('../app');
+const Router = require('../utils/router');
 const Vehicle       = require('../models/Vehicle');
 const { uploadBuffer, uploadThumbnail, deleteImage, extractPublicId } = require('../config/cloudinary');
 const { sendSuccess, sendError } = require('../utils/helpers');

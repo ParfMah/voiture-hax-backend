@@ -5,7 +5,7 @@
 'use strict';
 const { requireAuth, requireAdmin } = require('../middleware/auth');
 
-const { Router } = require('../app');
+const Router = require('../utils/router');
 const Vehicle = require('../models/Vehicle');
 const Order   = require('../models/Order');
 const User    = require('../models/User');

@@ -5,7 +5,7 @@
  */
 'use strict';
 
-const { Router } = require('../app');
+const Router = require('../utils/router');
 const creditEngine = require('../utils/creditEngine');
 const { sendSuccess, sendError } = require('../utils/helpers');
 

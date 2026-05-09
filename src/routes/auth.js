@@ -4,7 +4,7 @@
  */
 'use strict';
 
-const { Router }  = require('../app');
+const Router = require('../utils/router');
 const jwt         = require('jsonwebtoken');
 const User        = require('../models/User');
 const { sendSuccess, sendError } = require('../utils/helpers');

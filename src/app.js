@@ -19,121 +19,13 @@
 
 'use strict';
 
+const Router = require('./utils/router');
 const http   = require('http');
 const url    = require('url');
 const path   = require('path');
 const fs     = require('fs');
 const logger   = require('./utils/logger');
 const { sanitizeBody, preventNoSQLInjection, maxBodySize, securityAudit } = require('./middleware/security');
-
-// ============================================================
-// ROUTEUR MAISON (sans Express)
-// ============================================================
-class Router {
-  constructor() {
-    this.routes = [];       // [{ method, pattern, handlers[] }]
-    this.middlewares = [];  // middlewares globaux
-  }
-
-  // Enregistrer un middleware global
-  use(fn) {
-    this.middlewares.push(fn);
-  }
-
-  // Enregistrer une route
-  _register(method, pattern, ...handlers) {
-    this.routes.push({ method: method.toUpperCase(), pattern, handlers });
-  }
-  get(pattern, ...h)    { this._register('GET',    pattern, ...h); }
-  post(pattern, ...h)   { this._register('POST',   pattern, ...h); }
-  put(pattern, ...h)    { this._register('PUT',    pattern, ...h); }
-  patch(pattern, ...h)  { this._register('PATCH',  pattern, ...h); }
-  delete(pattern, ...h) { this._register('DELETE', pattern, ...h); }
-
-  // Monter un sous-routeur sur un préfixe
-  mount(prefix, subRouter) {
-    subRouter.routes.forEach(route => {
-      this.routes.push({
-        method:   route.method,
-        pattern:  prefix + route.pattern,
-        handlers: route.handlers,
-      });
-    });
-  }
-
-  // Correspondance URL avec paramètres :id
-  _match(pattern, pathname) {
-    const patternParts  = pattern.split('/').filter(Boolean);
-    const pathnameParts = pathname.split('/').filter(Boolean);
-    if (patternParts.length !== pathnameParts.length) return null;
-    const params = {};
-    for (let i = 0; i < patternParts.length; i++) {
-      if (patternParts[i].startsWith(':')) {
-        params[patternParts[i].slice(1)] = decodeURIComponent(pathnameParts[i]);
-      } else if (patternParts[i] !== pathnameParts[i]) {
-        return null;
-      }
-    }
-    return params;
-  }
-
-  // Gestionnaire principal (passé à http.createServer)
-  handler() {
-    return async (req, res) => {
-      const parsed   = url.parse(req.url, true);
-      req.pathname   = parsed.pathname;
-      req.query      = parsed.query;
-      req.params     = {};
-      req.body       = null;
-
-      // Helper réponse JSON
-      res.json = (data, status = 200) => {
-        res.writeHead(status, { 'Content-Type': 'application/json; charset=utf-8' });
-        res.end(JSON.stringify(data));
-      };
-      res.status = (code) => { res._statusCode = code; return res; };
-
-      try {
-        // Lire le body JSON
-        if (['POST','PUT','PATCH'].includes(req.method) &&
-            req.headers['content-type']?.includes('application/json')) {
-          req.body = await readBody(req);
-        }
-
-        // Appliquer les middlewares globaux en séquence
-        await runMiddlewares(this.middlewares, req, res);
-
-        // Trouver la route correspondante
-        let matched = false;
-        for (const route of this.routes) {
-          if (route.method !== req.method) continue;
-          const params = this._match(route.pattern, req.pathname);
-          if (params === null) continue;
-
-          req.params = params;
-          matched = true;
-
-          // Exécuter les handlers en chaîne (middleware-style)
-          await runMiddlewares(route.handlers, req, res);
-          break;
-        }
-
-        // Route introuvable
-        if (!matched && !res.writableEnded) {
-          res.json({ success: false, message: 'Endpoint non trovato' }, 404);
-        }
-
-      } catch (err) {
-        if (!res.writableEnded) {
-          logger.error('Errore handler:', err);
-          const status  = err.statusCode || err.status || 500;
-          const message = err.message || 'Errore interno del server';
-          res.json({ success: false, message }, status);
-        }
-      }
-    };
-  }
-}
 
 // ============================================================
 // HELPERS
@@ -322,9 +214,10 @@ function createApp() {
     fs.createReadStream(filePath).pipe(res);
   });
 
-  return router.handler();
+  return router.handler(readBody, runMiddlewares, createError, logger);
 }
 
-module.exports = createApp();
-module.exports.Router    = Router;
-module.exports.createError = createError;
+const handler = createApp();
+handler.Router     = Router;
+handler.createError = createError;
+module.exports = handler;
